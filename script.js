@@ -1,3 +1,6 @@
+// ゆっくり台本ととのえ〜る
+// 最終更新: 2024年3月
+
 function formatScript() {
   const text = document.getElementById('input').value.trim();
   if (!text) {
