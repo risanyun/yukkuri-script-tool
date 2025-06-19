@@ -100,7 +100,7 @@ function formatScript() {
       serifCell.className = 'serif-cell';
       let serifVal = reimuVal || marisaVal || serifSentences[i] || '';
       const serifInput = document.createElement('textarea');
-      serifInput.value = insertLineBreaks(serifVal, 30, '霊夢');
+      serifInput.value = insertLineBreaks(serifVal, 40, '霊夢');
       serifInput.className = 'script-text serif-textarea';
       serifInput.addEventListener('input', () => {
         updateFormattedText(serifInput, reimuSelect.value, marisaSelect.value, serifInput.value);
@@ -216,8 +216,8 @@ function downloadCSV() {
     .map(textarea => {
       const text = textarea.value;
       const tr = textarea.closest('tr');
-      const reimuCell = tr.children[0].querySelector('select');
-      const marisaCell = tr.children[1].querySelector('select');
+      const reimuCell = tr.children[1].querySelector('select'); // 霊夢セル（インデックス1）
+      const marisaCell = tr.children[2].querySelector('select'); // 魔理沙セル（インデックス2）
       let chara = '';
       if (reimuCell && reimuCell.value) {
         chara = `霊夢（${reimuCell.value}）`;
@@ -236,8 +236,8 @@ function downloadTXT() {
     .map(textarea => {
       const text = textarea.value;
       const tr = textarea.closest('tr');
-      const reimuCell = tr.children[0].querySelector('select');
-      const marisaCell = tr.children[1].querySelector('select');
+      const reimuCell = tr.children[1].querySelector('select'); // 霊夢セル（インデックス1）
+      const marisaCell = tr.children[2].querySelector('select'); // 魔理沙セル（インデックス2）
       let chara = '';
       if (reimuCell && reimuCell.value) {
         chara = `霊夢（${reimuCell.value}）`;
@@ -294,32 +294,37 @@ function loadDocx() {
   reader.readAsArrayBuffer(file);
 }
 
-function insertLineBreaks(text, maxLen = 30, speaker = '') {
+function insertLineBreaks(text, maxLen = 40, speaker = '') {
   // スペースをすべて削除
   text = text.replace(/\s+/g, '');
   let result = '';
   let s = text;
-  // 性格による改行基準（例：霊夢は短め、魔理沙は長め）
-  let len = maxLen;
-  if (speaker === '霊夢') len = 20;
-  if (speaker === '魔理沙') len = 40;
+  // 40文字で統一
+  let len = 40;
   let safety = 0; // 無限ループ防止
   while (s.length > len && safety < 1000) {
-    // 記号（、。！？…）の直前・直後で改行しない
-    let forbiddenMark = /[、。！？…]/;
-    let cut = len;
-    // len位置が記号なら、その前後を避けて改行
-    if (forbiddenMark.test(s[cut]) || forbiddenMark.test(s[cut - 1])) {
-      // 記号の直前・直後なら、前方にずらす
-      let back = cut - 1;
-      while (back > 0 && forbiddenMark.test(s[back])) back--;
-      if (back > 0) cut = back;
-      else {
-        // それでもだめなら後方にずらす
-        let forward = cut + 1;
-        while (forward < s.length && forbiddenMark.test(s[forward])) forward++;
-        if (forward < s.length) cut = forward;
+    // 句点（。）の直後で改行を優先
+    let cut = s.indexOf('。', len - 10); // len-10の位置から句点を探す
+    if (cut === -1 || cut > len + 10) {
+      // 句点が見つからない、または範囲外の場合は通常の処理
+      let forbiddenMark = /[、！？…]/;
+      cut = len;
+      // len位置が記号なら、その前後を避けて改行
+      if (forbiddenMark.test(s[cut]) || forbiddenMark.test(s[cut - 1])) {
+        // 記号の直前・直後なら、前方にずらす
+        let back = cut - 1;
+        while (back > 0 && forbiddenMark.test(s[back])) back--;
+        if (back > 0) cut = back;
+        else {
+          // それでもだめなら後方にずらす
+          let forward = cut + 1;
+          while (forward < s.length && forbiddenMark.test(s[forward])) forward++;
+          if (forward < s.length) cut = forward;
+        }
       }
+    } else {
+      // 句点の直後で改行
+      cut = cut + 1;
     }
     // 安全策: cutが0や-1の場合はlenで分割
     if (cut <= 0) cut = len;
