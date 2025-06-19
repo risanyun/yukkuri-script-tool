@@ -100,7 +100,7 @@ function formatScript() {
       serifCell.className = 'serif-cell';
       let serifVal = reimuVal || marisaVal || serifSentences[i] || '';
       const serifInput = document.createElement('textarea');
-      serifInput.value = insertLineBreaks(serifVal, 40, '霊夢');
+      serifInput.value = serifVal;
       serifInput.className = 'script-text serif-textarea';
       serifInput.addEventListener('input', () => {
         updateFormattedText(serifInput, reimuSelect.value, marisaSelect.value, serifInput.value);
@@ -120,42 +120,36 @@ function clearOutput() {
 }
 
 function splitIntoSentences(text) {
-  // まず「…」で改行、「。」で区切る。ただし「！」は区切りとしない。
+  // 記号（。！？…）の直後でセルを分割（ただし連続記号は1つとして扱う）
   let sentences = [];
   let buffer = '';
-  for (let i = 0; i < text.length; i++) {
+  let i = 0;
+  
+  while (i < text.length) {
     buffer += text[i];
-    // 「…」で改行
-    if (text[i] === '…') {
+    
+    // 記号が続く場合は1つとして扱う
+    if (text[i] === '。' || text[i] === '！' || text[i] === '？' || text[i] === '…') {
+      // 次の文字も記号かチェック
+      let nextIndex = i + 1;
+      while (nextIndex < text.length && 
+             (text[nextIndex] === '。' || text[nextIndex] === '！' || 
+              text[nextIndex] === '？' || text[nextIndex] === '…')) {
+        buffer += text[nextIndex];
+        i = nextIndex;
+        nextIndex++;
+      }
+      
+      // 記号の連続が終わったらセルを分割
       sentences.push(buffer);
       buffer = '';
-      continue;
     }
-    // 「。」で区切る
-    if (text[i] === '。') {
-      sentences.push(buffer);
-      buffer = '';
-      continue;
-    }
+    
+    i++;
   }
+  
   if (buffer) sentences.push(buffer);
-
-  // 50字超の文をさらに分割
-  let result = [];
-  sentences.forEach(sentence => {
-    let s = sentence;
-    while (s.length > 50) {
-      // 区切り候補：「。」→「、」→スペース
-      let cut = s.lastIndexOf('。', 50);
-      if (cut === -1) cut = s.lastIndexOf('、', 50);
-      if (cut === -1) cut = s.lastIndexOf(' ', 50);
-      if (cut === -1) cut = 50;
-      result.push(s.slice(0, cut + 1).trim());
-      s = s.slice(cut + 1).trim();
-    }
-    if (s) result.push(s);
-  });
-  return result.filter(Boolean);
+  return sentences.filter(Boolean);
 }
 
 function createFaceSelect(name, currentFace, onChange, disabled) {
@@ -261,12 +255,12 @@ function downloadFile(content, filename, type) {
 }
 
 function cleanScriptText(text) {
-  // 行頭の話者名（霊夢：や魔理沙：など）、：、URLのみ削除
+  // 行頭の話者名（霊夢：や魔理沙：など）、：、URL、スペースを削除
   return text
     .replace(/^\s*(霊夢|魔理沙)[：:]/gm, '') // 行頭の話者名+：
     .replace(/[：:]/g, '')
     .replace(/https?:\/\/\S+/g, '')
-    .replace(/\s+/g, ' ') // 連続スペースを1つに
+    .replace(/\s+/g, '') // すべてのスペース（半角・全角）を削除
     .trim();
 }
 
@@ -292,56 +286,6 @@ function loadDocx() {
       .catch(err => alert('ファイルの読み込みに失敗しました: ' + err));
   };
   reader.readAsArrayBuffer(file);
-}
-
-function insertLineBreaks(text, maxLen = 40, speaker = '') {
-  // スペースをすべて削除
-  text = text.replace(/\s+/g, '');
-  let result = '';
-  let s = text;
-  // 40文字で統一
-  let len = 40;
-  let safety = 0; // 無限ループ防止
-  while (s.length > len && safety < 1000) {
-    // 句点（。）、感嘆符（！）、疑問符（？）、三点リーダー（…）の直後で改行を優先
-    let cut = -1;
-    let searchStart = Math.max(0, len - 10);
-    let searchEnd = Math.min(s.length, len + 10);
-    
-    // 各記号を順番に検索
-    for (let i = searchStart; i < searchEnd; i++) {
-      if (s[i] === '。' || s[i] === '！' || s[i] === '？' || s[i] === '…') {
-        cut = i + 1; // 記号の直後で改行
-        break;
-      }
-    }
-    
-    if (cut === -1) {
-      // 記号が見つからない場合は通常の処理
-      let forbiddenMark = /[、]/;
-      cut = len;
-      // len位置が記号なら、その前後を避けて改行
-      if (forbiddenMark.test(s[cut]) || forbiddenMark.test(s[cut - 1])) {
-        // 記号の直前・直後なら、前方にずらす
-        let back = cut - 1;
-        while (back > 0 && forbiddenMark.test(s[back])) back--;
-        if (back > 0) cut = back;
-        else {
-          // それでもだめなら後方にずらす
-          let forward = cut + 1;
-          while (forward < s.length && forbiddenMark.test(s[forward])) forward++;
-          if (forward < s.length) cut = forward;
-        }
-      }
-    }
-    // 安全策: cutが0や-1の場合はlenで分割
-    if (cut <= 0) cut = len;
-    result += s.slice(0, cut) + '\n';
-    s = s.slice(cut);
-    safety++;
-  }
-  result += s;
-  return result;
 }
 
 // コンテキストメニュー関連の関数を追加
