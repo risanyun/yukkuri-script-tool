@@ -261,10 +261,9 @@ function downloadFile(content, filename, type) {
 }
 
 function cleanScriptText(text) {
-  // 行頭の話者名（霊夢：や魔理沙：など）、鉤括弧、：、URLのみ削除
+  // 行頭の話者名（霊夢：や魔理沙：など）、：、URLのみ削除
   return text
     .replace(/^\s*(霊夢|魔理沙)[：:]/gm, '') // 行頭の話者名+：
-    .replace(/[「」『』]/g, '')
     .replace(/[：:]/g, '')
     .replace(/https?:\/\/\S+/g, '')
     .replace(/\s+/g, ' ') // 連続スペースを1つに
@@ -343,9 +342,12 @@ function showContextMenu(e, targetRow) {
   // 新しいメニューを作成
   const menu = document.createElement('div');
   menu.className = 'context-menu';
-  menu.style.left = e.pageX + 'px';
-  menu.style.top = e.pageY + 'px';
-
+  
+  // メニューを一時的にbodyに追加してサイズを取得
+  menu.style.visibility = 'hidden';
+  menu.style.position = 'absolute';
+  document.body.appendChild(menu);
+  
   // メニュー項目を追加
   const insertAbove = document.createElement('div');
   insertAbove.className = 'context-menu-item';
@@ -383,7 +385,37 @@ function showContextMenu(e, targetRow) {
   };
   menu.appendChild(deleteRow);
 
-  document.body.appendChild(menu);
+  // メニューのサイズを取得
+  const menuRect = menu.getBoundingClientRect();
+  const menuWidth = menuRect.width;
+  const menuHeight = menuRect.height;
+  
+  // 画面サイズを取得
+  const windowWidth = window.innerWidth;
+  const windowHeight = window.innerHeight;
+  
+  // 初期位置（クリック位置）
+  let left = e.pageX;
+  let top = e.pageY;
+  
+  // 右端にはみ出る場合は左に調整
+  if (left + menuWidth > windowWidth) {
+    left = windowWidth - menuWidth - 10;
+  }
+  
+  // 下端にはみ出る場合は上に調整
+  if (top + menuHeight > windowHeight) {
+    top = windowHeight - menuHeight - 10;
+  }
+  
+  // 最小値を確保
+  left = Math.max(10, left);
+  top = Math.max(10, top);
+  
+  // 位置を設定
+  menu.style.left = left + 'px';
+  menu.style.top = top + 'px';
+  menu.style.visibility = 'visible';
 
   // メニュー以外をクリックしたら閉じる
   document.addEventListener('click', function closeMenu(e) {
