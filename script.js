@@ -394,13 +394,17 @@ function showContextMenu(e, targetRow) {
   const windowWidth = window.innerWidth;
   const windowHeight = window.innerHeight;
   
-  // 初期位置（クリック位置）
-  let left = e.pageX;
-  let top = e.pageY;
+  // クリックされたセルの位置を取得
+  const clickedCell = e.target;
+  const cellRect = clickedCell.getBoundingClientRect();
   
-  // 右端にはみ出る場合は左に調整
-  if (left + menuWidth > windowWidth) {
-    left = windowWidth - menuWidth - 10;
+  // 該当行の左横に表示する位置を計算
+  let left = cellRect.left - menuWidth - 10; // セルの左側に10pxの余白を空けて配置
+  let top = cellRect.top; // セルの上端に合わせる
+  
+  // 左端にはみ出る場合は右側に表示
+  if (left < 10) {
+    left = cellRect.right + 10;
   }
   
   // 下端にはみ出る場合は上に調整
@@ -408,9 +412,10 @@ function showContextMenu(e, targetRow) {
     top = windowHeight - menuHeight - 10;
   }
   
-  // 最小値を確保
-  left = Math.max(10, left);
-  top = Math.max(10, top);
+  // 上端にはみ出る場合は下に調整
+  if (top < 10) {
+    top = 10;
+  }
   
   // 位置を設定
   menu.style.left = left + 'px';
