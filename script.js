@@ -100,7 +100,7 @@ function formatScript() {
       serifCell.className = 'serif-cell';
       let serifVal = reimuVal || marisaVal || serifSentences[i] || '';
       const serifInput = document.createElement('textarea');
-      serifInput.value = insertLineBreaks(serifVal, 30, '霊夢');
+      serifInput.value = insertLineBreaks(serifVal, 40, '霊夢');
       serifInput.className = 'script-text serif-textarea';
       serifInput.addEventListener('input', () => {
         updateFormattedText(serifInput, reimuSelect.value, marisaSelect.value, serifInput.value);
@@ -216,8 +216,8 @@ function downloadCSV() {
     .map(textarea => {
       const text = textarea.value;
       const tr = textarea.closest('tr');
-      const reimuCell = tr.children[0].querySelector('select');
-      const marisaCell = tr.children[1].querySelector('select');
+      const reimuCell = tr.children[1].querySelector('select'); // 霊夢セル（インデックス1）
+      const marisaCell = tr.children[2].querySelector('select'); // 魔理沙セル（インデックス2）
       let chara = '';
       if (reimuCell && reimuCell.value) {
         chara = `霊夢（${reimuCell.value}）`;
@@ -236,8 +236,8 @@ function downloadTXT() {
     .map(textarea => {
       const text = textarea.value;
       const tr = textarea.closest('tr');
-      const reimuCell = tr.children[0].querySelector('select');
-      const marisaCell = tr.children[1].querySelector('select');
+      const reimuCell = tr.children[1].querySelector('select'); // 霊夢セル（インデックス1）
+      const marisaCell = tr.children[2].querySelector('select'); // 魔理沙セル（インデックス2）
       let chara = '';
       if (reimuCell && reimuCell.value) {
         chara = `霊夢（${reimuCell.value}）`;
@@ -261,10 +261,9 @@ function downloadFile(content, filename, type) {
 }
 
 function cleanScriptText(text) {
-  // 行頭の話者名（霊夢：や魔理沙：など）、鉤括弧、：、URLのみ削除
+  // 行頭の話者名（霊夢：や魔理沙：など）、：、URLのみ削除
   return text
     .replace(/^\s*(霊夢|魔理沙)[：:]/gm, '') // 行頭の話者名+：
-    .replace(/[「」『』]/g, '')
     .replace(/[：:]/g, '')
     .replace(/https?:\/\/\S+/g, '')
     .replace(/\s+/g, ' ') // 連続スペースを1つに
@@ -295,31 +294,44 @@ function loadDocx() {
   reader.readAsArrayBuffer(file);
 }
 
-function insertLineBreaks(text, maxLen = 30, speaker = '') {
+function insertLineBreaks(text, maxLen = 40, speaker = '') {
   // スペースをすべて削除
   text = text.replace(/\s+/g, '');
   let result = '';
   let s = text;
-  // 性格による改行基準（例：霊夢は短め、魔理沙は長め）
-  let len = maxLen;
-  if (speaker === '霊夢') len = 20;
-  if (speaker === '魔理沙') len = 40;
+  // 40文字で統一
+  let len = 40;
   let safety = 0; // 無限ループ防止
   while (s.length > len && safety < 1000) {
-    // 記号（、。！？…）の直前・直後で改行しない
-    let forbiddenMark = /[、。！？…]/;
-    let cut = len;
-    // len位置が記号なら、その前後を避けて改行
-    if (forbiddenMark.test(s[cut]) || forbiddenMark.test(s[cut - 1])) {
-      // 記号の直前・直後なら、前方にずらす
-      let back = cut - 1;
-      while (back > 0 && forbiddenMark.test(s[back])) back--;
-      if (back > 0) cut = back;
-      else {
-        // それでもだめなら後方にずらす
-        let forward = cut + 1;
-        while (forward < s.length && forbiddenMark.test(s[forward])) forward++;
-        if (forward < s.length) cut = forward;
+    // 句点（。）、感嘆符（！）、疑問符（？）、三点リーダー（…）の直後で改行を優先
+    let cut = -1;
+    let searchStart = Math.max(0, len - 10);
+    let searchEnd = Math.min(s.length, len + 10);
+    
+    // 各記号を順番に検索
+    for (let i = searchStart; i < searchEnd; i++) {
+      if (s[i] === '。' || s[i] === '！' || s[i] === '？' || s[i] === '…') {
+        cut = i + 1; // 記号の直後で改行
+        break;
+      }
+    }
+    
+    if (cut === -1) {
+      // 記号が見つからない場合は通常の処理
+      let forbiddenMark = /[、]/;
+      cut = len;
+      // len位置が記号なら、その前後を避けて改行
+      if (forbiddenMark.test(s[cut]) || forbiddenMark.test(s[cut - 1])) {
+        // 記号の直前・直後なら、前方にずらす
+        let back = cut - 1;
+        while (back > 0 && forbiddenMark.test(s[back])) back--;
+        if (back > 0) cut = back;
+        else {
+          // それでもだめなら後方にずらす
+          let forward = cut + 1;
+          while (forward < s.length && forbiddenMark.test(s[forward])) forward++;
+          if (forward < s.length) cut = forward;
+        }
       }
     }
     // 安全策: cutが0や-1の場合はlenで分割
@@ -343,9 +355,12 @@ function showContextMenu(e, targetRow) {
   // 新しいメニューを作成
   const menu = document.createElement('div');
   menu.className = 'context-menu';
-  menu.style.left = e.pageX + 'px';
-  menu.style.top = e.pageY + 'px';
-
+  
+  // メニューを一時的にbodyに追加してサイズを取得
+  menu.style.visibility = 'hidden';
+  menu.style.position = 'absolute';
+  document.body.appendChild(menu);
+  
   // メニュー項目を追加
   const insertAbove = document.createElement('div');
   insertAbove.className = 'context-menu-item';
@@ -383,7 +398,46 @@ function showContextMenu(e, targetRow) {
   };
   menu.appendChild(deleteRow);
 
-  document.body.appendChild(menu);
+  // メニューのサイズを取得
+  const menuRect = menu.getBoundingClientRect();
+  const menuWidth = menuRect.width;
+  const menuHeight = menuRect.height;
+  
+  // 画面サイズを取得
+  const windowWidth = window.innerWidth;
+  const windowHeight = window.innerHeight;
+  
+  // クリックされたセルの位置を取得
+  const clickedCell = e.target;
+  const cellRect = clickedCell.getBoundingClientRect();
+  
+  // スクロール位置を取得
+  const scrollX = window.pageXOffset || document.documentElement.scrollLeft;
+  const scrollY = window.pageYOffset || document.documentElement.scrollTop;
+  
+  // 該当行の左横に表示する位置を計算（スクロール位置を考慮）
+  let left = cellRect.left + scrollX - menuWidth - 10; // セルの左側に10pxの余白を空けて配置
+  let top = cellRect.top + scrollY; // セルの上端に合わせる
+  
+  // 左端にはみ出る場合は右側に表示
+  if (left < 10) {
+    left = cellRect.right + scrollX + 10;
+  }
+  
+  // 下端にはみ出る場合は上に調整
+  if (top + menuHeight > windowHeight + scrollY) {
+    top = windowHeight + scrollY - menuHeight - 10;
+  }
+  
+  // 上端にはみ出る場合は下に調整
+  if (top < scrollY + 10) {
+    top = scrollY + 10;
+  }
+  
+  // 位置を設定
+  menu.style.left = left + 'px';
+  menu.style.top = top + 'px';
+  menu.style.visibility = 'visible';
 
   // メニュー以外をクリックしたら閉じる
   document.addEventListener('click', function closeMenu(e) {
