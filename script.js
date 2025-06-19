@@ -303,11 +303,22 @@ function insertLineBreaks(text, maxLen = 40, speaker = '') {
   let len = 40;
   let safety = 0; // 無限ループ防止
   while (s.length > len && safety < 1000) {
-    // 句点（。）の直後で改行を優先
-    let cut = s.indexOf('。', len - 10); // len-10の位置から句点を探す
-    if (cut === -1 || cut > len + 10) {
-      // 句点が見つからない、または範囲外の場合は通常の処理
-      let forbiddenMark = /[、！？…]/;
+    // 句点（。）、感嘆符（！）、疑問符（？）、三点リーダー（…）の直後で改行を優先
+    let cut = -1;
+    let searchStart = Math.max(0, len - 10);
+    let searchEnd = Math.min(s.length, len + 10);
+    
+    // 各記号を順番に検索
+    for (let i = searchStart; i < searchEnd; i++) {
+      if (s[i] === '。' || s[i] === '！' || s[i] === '？' || s[i] === '…') {
+        cut = i + 1; // 記号の直後で改行
+        break;
+      }
+    }
+    
+    if (cut === -1) {
+      // 記号が見つからない場合は通常の処理
+      let forbiddenMark = /[、]/;
       cut = len;
       // len位置が記号なら、その前後を避けて改行
       if (forbiddenMark.test(s[cut]) || forbiddenMark.test(s[cut - 1])) {
@@ -322,9 +333,6 @@ function insertLineBreaks(text, maxLen = 40, speaker = '') {
           if (forward < s.length) cut = forward;
         }
       }
-    } else {
-      // 句点の直後で改行
-      cut = cut + 1;
     }
     // 安全策: cutが0や-1の場合はlenで分割
     if (cut <= 0) cut = len;
